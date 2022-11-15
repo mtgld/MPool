@@ -13,6 +13,8 @@ interface IWorld {
     function userSettlements(uint256 val) external view returns (address);
     function getUserSettlements(uint256[] calldata ownerTokenIds) external view returns (address[] memory res);
     function batchTransferResources(address to, string[] calldata resourcesNames, uint256[] calldata amounts) external;
+    function resourcesMap(string calldata) external view returns (address);
+    function bannerContract() external view returns (address);
 }
 
 interface ISettlement {
@@ -28,8 +30,6 @@ interface IBuilding {
 
 //Update OwnableUpgradeable to AccessControl
 contract MPool is Initializable, UUPSUpgradeable, AccessControlEnumerableUpgradeable {
-    bytes32 public constant MANAGE_ROLE = keccak256("MANAGE_ROLE");
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     IWorld public world;
 
@@ -50,13 +50,15 @@ contract MPool is Initializable, UUPSUpgradeable, AccessControlEnumerableUpgrade
     mapping(uint => address) public flagsMines;
     mapping(uint => address) public flagsWeaponFactory;
 
-    function initialize(address _worldAddr, address _flagAddr) public initializer {
+    function initialize(address _worldAddr) public initializer {
         world = IWorld(_worldAddr);
-        flag = IERC721(_flagAddr);
+        flag = IERC721(world.bannerContract());
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(MANAGE_ROLE, _msgSender());
-        _setupRole(OPERATOR_ROLE, _msgSender());
+
+        food = IERC20(world.resourcesMap("FOOD"));
+        wood = IERC20(world.resourcesMap("WOOD"));
+        copper = IERC20(world.resourcesMap("COPPER"));
     }
 
 
@@ -208,43 +210,16 @@ contract MPool is Initializable, UUPSUpgradeable, AccessControlEnumerableUpgrade
     }
 
 
-    function withdrawETH() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        payable(msg.sender).transfer(address(this).balance);
-    }
-
-    function withdrawNFT(IERC721 _contract, address _to, uint id) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _contract.safeTransferFrom(address(this), _to, id);
-    }
-
-    function withdrawERC20(IERC20 _token, address _to)  public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _token.transfer(_to, _token.balanceOf(address(this)));
-    }
-
 
     function setWorldAddr(address _worldAddr) external onlyRole(DEFAULT_ADMIN_ROLE) {
         world = IWorld(_worldAddr);
-    }
 
-    function setFlagAddr(address _flagAddr) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        flag = IERC721(_flagAddr);
-    }
+        flag = IERC721(world.bannerContract());
 
-    function setFooddAddr(address _foodAddr) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        food = IERC20(_foodAddr);
+        food = IERC20(world.resourcesMap("FOOD"));
+        wood = IERC20(world.resourcesMap("WOOD"));
+        copper = IERC20(world.resourcesMap("COPPER"));
     }
-
-    function setWoodAddr(address _woodAddr) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        wood = IERC20(_woodAddr);
-    }
-
-    function setCopperAddr(address _copperAddr) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        copper = IERC20(_copperAddr);
-    }
-
-    function addr() external view returns (uint) {
-        return 4;
-    }
-
 
 
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external view returns (bytes4) {
