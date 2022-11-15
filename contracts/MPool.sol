@@ -145,42 +145,50 @@ contract MPool is Initializable, UUPSUpgradeable, AccessControlEnumerableUpgrade
 
         (mFood, mWood, mCopper) = calculateResForSettlement();
 
-        for (uint i = 0; i < flags.length; i++) {
-            uint lumbermillWorkers = IBuilding(flagsLumbermill[flags[i]]).workers() / 1 ether;
-            uint minesWorkers = IBuilding(flagsMines[flags[i]]).workers() / 1 ether;
-            uint wFactoryWorkers = IBuilding(flagsWeaponFactory[flags[i]]).workers() / 1 ether;
+        if (mFood > 0) {
+            for (uint i = 0; i < flags.length; i++) {
+                uint lumbermillWorkers = IBuilding(flagsLumbermill[flags[i]]).workers() / 1 ether;
+                uint minesWorkers = IBuilding(flagsMines[flags[i]]).workers() / 1 ether;
+                uint wFactoryWorkers = IBuilding(flagsWeaponFactory[flags[i]]).workers() / 1 ether;
 
-            uint minDeposit = calculateMinDeposit(mFood, mWood, mCopper, lumbermillWorkers, minesWorkers, wFactoryWorkers);
+                uint minDeposit = calculateMinDeposit(mFood, mWood, mCopper, lumbermillWorkers, minesWorkers, wFactoryWorkers);
 
-            string[] memory _r = new string[](1);
-            _r[0] = "FOOD";
+                string[] memory _r = new string[](1);
+                _r[0] = "FOOD";
 
-            uint[] memory _v = new uint[](1);
-            _v[0] = minDeposit * lumbermillWorkers;
+                uint[] memory _v = new uint[](1);
+                _v[0] = minDeposit * lumbermillWorkers;
 
-            world.batchTransferResources(flagsLumbermill[flags[i]], _r, _v);
+                world.batchTransferResources(flagsLumbermill[flags[i]], _r, _v);
 
-            _r = new string[](2);
-            _r[0] = "FOOD";
-            _r[1] = "WOOD";
+                if (mWood > 0) {
+                    _r = new string[](2);
+                    _r[0] = "FOOD";
+                    _r[1] = "WOOD";
 
-            _v = new uint[](2);
-            _v[0] = minDeposit * minesWorkers;
-            _v[1] = _v[0];
+                    _v = new uint[](2);
+                    _v[0] = minDeposit * minesWorkers;
+                    _v[1] = _v[0];
 
-            world.batchTransferResources(flagsMines[flags[i]], _r, _v);
-            _r = new string[](3);
-            _r[0] = "FOOD";
-            _r[1] = "WOOD";
-            _r[2] = "COPPER";
+                    world.batchTransferResources(flagsMines[flags[i]], _r, _v);
+                }
 
-            _v = new uint[](3);
-            _v[0] = minDeposit * wFactoryWorkers;
-            _v[1] = _v[0];
-            _v[2] = _v[0];
+                if (mCopper > 0) {
+                    _r = new string[](3);
+                    _r[0] = "FOOD";
+                    _r[1] = "WOOD";
+                    _r[2] = "COPPER";
 
-            world.batchTransferResources(flagsWeaponFactory[flags[i]], _r, _v);
+                    _v = new uint[](3);
+                    _v[0] = minDeposit * wFactoryWorkers;
+                    _v[1] = _v[0];
+                    _v[2] = _v[0];
 
+                    world.batchTransferResources(flagsWeaponFactory[flags[i]], _r, _v);
+                }
+
+
+            }
         }
 
 
@@ -195,18 +203,28 @@ contract MPool is Initializable, UUPSUpgradeable, AccessControlEnumerableUpgrade
     }
 
     function calculateMinDeposit(uint _mFood, uint _mWood, uint _mCopper, uint _lWorkers, uint _mWorkers, uint _wFactoryWorkers) public pure returns(uint) {
-        _mFood = _mFood / (_lWorkers + _mWorkers + _wFactoryWorkers);
-        _mWood = _mWood / (_mWorkers + _wFactoryWorkers);
-        _mCopper = _mCopper / _wFactoryWorkers;
+        if (_mFood == 0) return 0;
 
-
-        if (_mFood <= _mWood && _mFood <= _mCopper) {
-            return _mFood;
-        } else if (_mWood <= _mCopper) {
-            return _mWood;
-        } else {
-            return _mCopper;
+        if (_mWood == 0) {
+            _mWorkers = 0;
+            _wFactoryWorkers = 0;
         }
+
+        if (_mCopper == 0) {
+            _wFactoryWorkers = 0;
+        }
+
+
+        _mFood = _lWorkers > 0  ? _mFood / (_lWorkers + _mWorkers + _wFactoryWorkers) : 0;
+        _mWood = _mWorkers > 0  ? _mWood / (_mWorkers + _wFactoryWorkers) : 0;
+        _mCopper = _wFactoryWorkers > 0 ? _mCopper / _wFactoryWorkers : 0;
+
+        uint minDep = _mFood;
+
+        minDep = _mWood > 0 && minDep < _mWood ? _mWood : minDep;
+        minDep = _mCopper > 0 && minDep < _mCopper ? _mCopper : minDep;
+
+        return minDep;
     }
 
 
